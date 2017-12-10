@@ -1,0 +1,77 @@
+---
+title: "Week4Machine learning Writeup"
+author: "John Miima"
+date: "12/8/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Overview
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, the goal is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants, who were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: <http://groupware.les.inf.puc-rio.br/har>. The aim of this project is to predict the manner in which they did the execise.
+
+
+```{r}
+library(tidyverse)
+training_data<-read_csv('https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv', na = c("", "NA","#DIV/0!"))
+test_data <- read_csv('https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv', na = c("", "NA", "#DIV/0!"))
+```
+## Cleaning Data
+Several columns of the raw data set have string contaning nothing, so we delete those columns first, and we also delete the first 7 columns: X, user_name, raw_timestamp_part_1, raw_timestamp_part_2, cvtd_timestamp, new_window, num_window. These features are obviously not related to predict the outcome.
+
+In this section I remove the rows of data which has “NA” and also the variables which are not required or useful for the predictions from both the training set and the testing set.
+```{r}
+
+na_count = sapply(1:dim(training_data)[2],function(x)sum(is.na(training_data[,x])))
+    na_list = which(na_count>0)
+    
+    training_data = training_data[,-na_list]
+   training_data = training_data[,-c(1:7)]
+   training_data$classe = factor(training_data$classe)
+
+   na_count_test = sapply(1:dim(test_data)[2],function(x)sum(is.na(test_data[,x])))
+    na_list_test = which(na_count_test>0)
+  test_data = test_data[,-na_list_test]
+   test_data = test_data[,-c(1:7)]
+```
+
+## Testing Data sets
+```{r}
+library(lattice)
+library(caret)
+library(lift)
+library(rpart)
+ inTrain=createDataPartition(y=training_data$classe, p=0.6, list=FALSE)
+    training <-training_data[inTrain,]
+    testing <- training_data[-inTrain,]
+     modfit1 <- train(classe ~ .,method='rpart',data=training)
+    #fancyRpartPlot(modfit1$finalModel) 
+    pred=predict(modfit1,newdata=testing)
+    z=confusionMatrix(pred,testing$classe)
+    z$table
+    z$overall[1]
+```
+## Method2 Random Forest Method
+```{r}
+library(randomForest)
+modfit2=randomForest(classe~., data=training, method='class')
+    pred2 = predict(modfit2,testing,type='class') 
+    z2=confusionMatrix(pred2,testing$classe)
+    z2$table
+    z2$overall[1]
+```
+## Prediction
+The random Forest Method is used for prediction for it has better accuracy.
+```{r}
+  pred3 =  predict(modfit2,test_data,type='class')
+    nofiles = length(pred3)
+    for (i in 1:nofiles){
+        filename =  paste0("problem_id",i,".txt")
+        write.table(pred3[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+    }
+    pred3
+```
+
